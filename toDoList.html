@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>To-Do List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #007BFF;
+            color: #333;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-image: linear-gradient(135deg, #007BFF 25%, transparent 25%), 
+                              linear-gradient(225deg, #007BFF 25%, transparent 25%), 
+                              linear-gradient(45deg, #007BFF 25%, transparent 25%), 
+                              linear-gradient(315deg, #007BFF 25%, transparent 25%);
+            background-size: 20px 20px;
+            background-position: 10px 0, 10px 0, 0 0, 0 0;
+        }
+
+        h1 {
+            color: #fff;
+            background: linear-gradient(to right, #007BFF, #00CFFF);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            font-size: 2em;
+            margin: 0;
+        }
+
+        #taskInput, #taskTime {
+            padding: 10px;
+            margin: 10px 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #taskList {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 0;
+            list-style-type: none;
+        }
+
+        .task-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 200px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .task-item:hover {
+            transform: scale(1.05);
+        }
+
+        .completed {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .task-date, .task-time {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .delete-btn {
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .delete-btn:hover {
+            background: darkred;
+        }
+    </style>
+</head>
+<body>
+    <h1>To-Do List</h1>
+    <input type="text" id="taskInput" placeholder="New task">
+    <input type="time" id="taskTime">
+    <button onclick="addTask()">Add Task</button>
+    <ul id="taskList"></ul>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            loadTasks();
+            checkReminders();
+            if (Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+        });
+
+        function addTask() {
+            const input = document.getElementById("taskInput");
+            const timeInput = document.getElementById("taskTime");
+            const taskText = input.value.trim();
+            const taskTime = timeInput.value;
+            if (taskText === "" || taskTime === "") return;
+
+            const date = new Date();
+            const dateString = date.toLocaleDateString();
+
+            const task = {
+                text: taskText,
+                date: dateString,
+                time: taskTime
+            };
+
+            saveTask(task);
+            renderTask(task);
+            input.value = "";
+            timeInput.value = "";
+        }
+
+        function saveTask(task) {
+            let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+            tasks.push(task);
+            localStorage.setItem("tasks", JSON.stringify(tasks));
+        }
+
+        function loadTasks() {
+            let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+            tasks.forEach(task => renderTask(task));
+        }
+
+        function renderTask(task) {
+            const li = document.createElement("li");
+            li.className = "task-item";
+            li.innerHTML = `
+                <span>${task.text} <span class="task-date">(${task.date})</span></span>
+                <span class="task-time">${task.time}</span>
+                <button class="delete-btn" onclick="deleteTask(event, '${task.text}', '${task.date}', '${task.time}')">Delete</button>
+            `;
+
+            li.addEventListener("click", function() {
+                this.classList.toggle("completed");
+            });
+
+            document.getElementById("taskList").appendChild(li);
+        }
+
+        function deleteTask(event, taskText, taskDate, taskTime) {
+            event.stopPropagation();
+            let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+            tasks = tasks.filter(task => !(task.text === taskText && task.date === taskDate && task.time === taskTime));
+            localStorage.setItem("tasks", JSON.stringify(tasks));
+
+            const li = event.target.parentElement;
+            li.remove();
+        }
+
+        function checkReminders() {
+            let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+            const now = new Date();
+            tasks.forEach(task => {
+                const [taskHour, taskMinute] = task.time.split(":").map(num => parseInt(num, 10));
+                const taskDateTime = new Date(now.toDateString() + ` ${taskHour}:${taskMinute}`);
+
+                if (taskDateTime <= now && !document.querySelector(`li.task-item span:contains('${task.text}')`).classList.contains('completed')) {
+                    notify(task.text);
+                }
+            });
+            setTimeout(checkReminders, 60000);
+        }
+
+        function notify(taskText) {
+            if (Notification.permission === "granted") {
+                new Notification("Reminder", {
+                    body: `Time to complete: ${taskText}`,
+                    icon: "https://via.placeholder.com/150"
+                });
+            }
+
+            const audio = new Audio('https://www.soundjay.com/button/sounds/beep-07.wav');
+            audio.play();
+        }
+    </script>
+</body>
+</html>
